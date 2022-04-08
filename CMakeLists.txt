@@ -8,6 +8,7 @@ add_executable(meta
 	include/meta/connection.h
 	include/meta/object
 	include/meta/object.h
+	include/meta/util.h
 )
 
 target_compile_features(meta
