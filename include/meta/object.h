@@ -2,32 +2,68 @@
 
 #include <concepts>
 #include <variant>
+#include <list>
+#include <map>
 
 #include "connection.h"
 
 namespace meta
 {
 	template <typename T>
+	concept Objectable = requires (T t) {
+	    t.properties();
+    };
+
+	template <typename Class>
 	class object;
 
 	template <std::copy_constructible T>
 	class property;
+
 }
 
 namespace meta {
 	using std::variant;
 
-	template <typename T>
+	template <typename Class>
+	//reqires Objectable<Class>
 	class object
 	{
-	public:
-		object()
-		{
+		std::list<std::function<void(void)>> m_propertyUpdater;
+		std::map<std::string, std::any> m_namedProperties;
 
+	public:
+		object(Class *implementer)
+		{
+			implementer->properties();
 		}
 
-	protected:
-		virtual void properties() = 0;
+		template <typename T>
+		void addProperty(property<T> &p, std::optional<std::string> name = std::nullopt)
+		{
+			m_propertyUpdater.push_back([&p](){
+				p.set.doWork();
+			});
+
+			if(name) {
+				m_namedProperties[name.value()] = &p;
+			}
+		}
+
+		void update()
+		//requires Objectable<Class>
+		{
+			for(auto &x : m_propertyUpdater) {
+				x();
+			}
+		}
+
+		std::any getPropertyByName(std::string name)
+		{
+			if(m_namedProperties.contains(name)) {
+				return m_namedProperties[name];
+			} return std::any();
+		}
 	};
 
 	template <std::copy_constructible T>
@@ -38,11 +74,11 @@ namespace meta {
 	public:
 		property(T const& value = T()) : m_value(value)
 		{
-			set = [this](T value)
+			set.setCallable([this](T value)
 			{
 				m_value = value;
 				changed(value);
-			};
+			});
 		}
 
 		signal<T> changed;
@@ -53,10 +89,11 @@ namespace meta {
 			return m_value;
 		}
 
-		T operator=(T const& value)
+		template <typename U>
+		U operator=(U const& value)
 		{
 			m_value = value;
-			changed(value);
+			changed(m_value);
 
 			return *this;
 		}

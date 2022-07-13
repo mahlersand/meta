@@ -2,26 +2,36 @@
 
 #include <tuple>
 #include <utility>
+#include <memory>
 
 namespace meta {
-	namespace detail {
-		//using std::tuple;
+	namespace util {
+		using std::tuple;
 		using std::size_t;
 		using std::get;
 		using std::forward;
 		using std::index_sequence;
 		using std::index_sequence_for;
+		using std::shared_ptr;
 
-		template <typename F, class Tuple, size_t ...Indices>
-		constexpr decltype(auto) apply_drop_impl(F &&f, Tuple t, index_sequence<Indices ...>)
+		template <typename F, typename ...Args>
+		concept functorable = std::invocable<F, Args ...> && std::copy_constructible<F>;
+
+		template <typename F, size_t ...Indices, typename ...SourceTypes>
+		constexpr decltype(auto) apply_drop_impl(F &&f,
+		                                         index_sequence<Indices ...>,
+		                                         SourceTypes ...sourceValues)
 		{
-			return f(get<Indices>(t)...);
+			return f(get<Indices>(std::make_tuple(sourceValues ...)) ...);
 		}
 
-		template <typename ...TargetTypes, typename F, typename Tuple>
-		constexpr decltype(auto) apply_drop(F &&f, Tuple t)
+		template <typename ...TargetTypes, typename F, typename ...SourceTypes>
+		constexpr decltype(auto) apply_drop(F &&f,
+		                                    SourceTypes ...sourceValues)
 		{
-			return apply_drop_impl(forward<F>(f), t, index_sequence_for<TargetTypes ...>{});
+			return apply_drop_impl(forward<F>(f),
+			                       index_sequence_for<TargetTypes ...>{},
+			                       sourceValues ...);
 		}
 	}
 }
