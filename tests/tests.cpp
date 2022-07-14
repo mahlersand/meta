@@ -15,18 +15,7 @@ using std::endl;
 using std::shared_ptr;
 using std::get;
 
-
-TEST_CASE("Test signal creation and deletion")
-{
-	meta::signal<std::string> s;
-}
-
-TEST_CASE("Test slot creation and deletion")
-{
-	meta::slot<std::string> s;
-}
-
-TEST_CASE("Test signal/slot connection with dropping")
+TEST_CASE("Stack signals/slots")
 {
 	using namespace std;
 	using meta::signal;
@@ -35,13 +24,157 @@ TEST_CASE("Test signal/slot connection with dropping")
 	signal<string, int, int, float> sender;
 	slot<string, int, float> receiver;
 
-	receiver.setCallable([](string s, int i, float f){
+	bool called = false;
+
+	receiver.setCallable([&called](string s, int i, float f){
 		REQUIRE(s == "Banana");
 		REQUIRE(i == 10);
 		REQUIRE(f == float(26));
+		called = true;
 	});
 
-	connect(sender, receiver);
+	auto c = connect(sender, receiver);
 
 	sender("Banana", 10, 26, -5.0);
+
+	REQUIRE(called);
+}
+
+TEST_CASE("Heap signals/slots")
+{
+	using namespace std;
+	using meta::signal;
+	using meta::slot;
+
+	auto sender = std::make_shared<signal<string, int, int, float>>();
+	auto receiver = std::make_shared<slot<string, int, float>>();
+
+	bool called = false;
+
+	receiver->setCallable([&called](string s, int i, float f){
+		REQUIRE(s == "Banana");
+		REQUIRE(i == 10);
+		REQUIRE(f == float(26));
+		called = true;
+	});
+
+	auto c = connect(*sender, *receiver);
+
+	(*sender)("Banana", 10, 26, -5.0);
+
+	REQUIRE(called);
+}
+
+TEST_CASE("Ad hoc connections")
+{
+	using namespace std;
+	using meta::signal;
+	using meta::slot;
+
+	bool called = false;
+
+	auto sender = std::make_shared<signal<string, int, int, float>>();
+	auto receiver = [&called](string s, int i, float f){
+		REQUIRE(s == "Banana");
+		REQUIRE(i == 10);
+		REQUIRE(f == float(26));
+		called = true;
+	};
+
+	auto c = connect(*sender, std::function(receiver));
+
+	(*sender)("Banana", 10, 26, -5.0);
+
+	REQUIRE(called);
+}
+
+TEST_CASE("Disconnection")
+{
+	using namespace std;
+	using meta::signal;
+	using meta::slot;
+
+	auto sender = std::make_shared<signal<string, int, int, float>>();
+	auto receiver = std::make_shared<slot<string, int, float>>();
+
+	int calls = 0;
+
+	receiver->setCallable([&calls](string s, int i, float f){
+		REQUIRE(s == "Banana");
+		REQUIRE(i == 10);
+		REQUIRE(f == float(26));
+		++calls;
+	});
+
+	auto c = connect(*sender, *receiver);
+
+	(*sender)("Banana", 10, 26, -5.0);
+
+	REQUIRE(calls == 1);
+
+	c->disconnect();
+
+	(*sender)("Banana", 10, 26, -5.0);
+
+	REQUIRE(calls == 1);
+}
+
+TEST_CASE("Disconnection on deletion")
+{
+	using namespace std;
+	using meta::signal;
+	using meta::slot;
+
+	auto sender = std::make_shared<signal<string, int, int, float>>();
+	auto receiver = std::make_shared<slot<string, int, float>>();
+
+	int calls = 0;
+
+	receiver->setCallable([&calls](string s, int i, float f){
+		REQUIRE(s == "Banana");
+		REQUIRE(i == 10);
+		REQUIRE(f == float(26));
+		++calls;
+	});
+
+	auto c = connect(*sender, *receiver);
+
+	(*sender)("Banana", 10, 26, -5.0);
+
+	REQUIRE(calls == 1);
+
+	receiver.reset();
+
+	(*sender)("Banana", 10, 26, -5.0);
+
+	REQUIRE(calls == 1);
+}
+
+TEST_CASE("Disconnection of ad hoc connections")
+{
+	using namespace std;
+	using meta::signal;
+	using meta::slot;
+
+	int calls = 0;
+
+	auto sender = std::make_shared<signal<string, int, int, float>>();
+	auto receiver = [&calls](string s, int i, float f){
+		REQUIRE(s == "Banana");
+		REQUIRE(i == 10);
+		REQUIRE(f == float(26));
+		++calls;
+	};
+
+	auto c = connect(*sender, std::function(receiver));
+
+	(*sender)("Banana", 10, 26, -5.0);
+
+	REQUIRE(calls == 1);
+
+	c->disconnect();
+
+	(*sender)("Banana", 10, 26, -5.0);
+
+	REQUIRE(calls == 1);
 }
