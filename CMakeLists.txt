@@ -10,7 +10,6 @@ add_library(meta
 	include/meta/dummy.cpp
 	include/meta/connection
 	include/meta/connection.h
-	include/meta/connection_old.h
 	include/meta/object
 	include/meta/object.h
 	include/meta/util.h

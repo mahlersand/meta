@@ -4,6 +4,14 @@
 #include <utility>
 #include <memory>
 
+//Documentation
+
+/*!
+ *	\namespace meta
+ *	The meta namespace contains all the functionality of the meta library
+ */
+
+
 namespace meta {
 	namespace util {
 		using std::tuple;
