@@ -31,29 +31,22 @@ namespace meta
 
 	class connection;
 
-	template <typename ...>
-	class signal_connection;
-
-	template <typename ...>
-	class slot_connection;
-
 	template <typename ...EmitterArgs, typename ...ReceiverArgs>
 	std::shared_ptr<connection> connect(signal<EmitterArgs ...> &,
 	                                    slot<ReceiverArgs ...> &,
 	                                    connection_type type = connection_type::DIRECT);
+
+	template <typename ...EmitterArgs, typename ...ReceiverArgs>
+	std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+	                                    std::function<void(ReceiverArgs ...)> receiver);
 }
 
 namespace meta
 {
-	using std::size_t;
-	using std::shared_ptr;
-	using std::set;
-	using std::function;
-
 	struct connectable_base
 	{
 	protected:
-		set<shared_ptr<connection>> m_connections;
+		std::set<std::shared_ptr<connection>> m_connections;
 
 		friend class connection;
 
@@ -122,31 +115,15 @@ namespace meta
 			} else return false;
 		}
 
-		/*!
-		 * \brief Connects a signal with a slot
-		 * \param emitter The emitting signal
-		 * \param receiver The receiving sigal
-		 * \param type Whether the connection should be initialised as a direct or delayed connection
-		 * \return A shared pointer of the connection object.
-		 */
-		template <typename ...EmitterArgs, typename ...ReceiverArgs>
-		friend shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-		                                      slot<ReceiverArgs ...> &receiver,
-		                                      connection_type type);
 
-		/*!
-		 * \brief Connects a signal with a std::function defining the receiver args.
-		 *
-		 * For callables in another format, use (with F f) std::function(f)
-		 * For lambdas, equivalently use std::function([...](...){...})
-		 *
-		 * \param emitter The emitting signal
-		 * \param receiver The receiving std::function
-		 * \return A shared pointer to the connection object
-		 */
 		template <typename ...EmitterArgs, typename ...ReceiverArgs>
-		friend shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-		                                      std::function<void(ReceiverArgs ...)> receiver);
+		friend std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+		                                           slot<ReceiverArgs ...> &receiver,
+		                                           connection_type type);
+
+		template <typename ...EmitterArgs, typename ...ReceiverArgs>
+		friend std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+		                                           std::function<void(ReceiverArgs ...)> receiver);
 
 		template <typename ...Args>
 		friend class signal;
@@ -168,7 +145,7 @@ namespace meta
 
 		~signal()
 		{
-			for(shared_ptr<connection> const &c : m_connections) {
+			for(std::shared_ptr<connection> const &c : m_connections) {
 				if(c->m_receiver)
 					c->m_receiver.value()->m_connections.erase(c);
 			}
@@ -182,19 +159,19 @@ namespace meta
 		 */
 		void operator()(Args ...args)
 		{
-			for(shared_ptr<connection> const &c : m_connections) {
-				std::any_cast<function<void(Args ...)>>(c->m_tecb)(args ...);
+			for(std::shared_ptr<connection> const &c : m_connections) {
+				std::any_cast<std::function<void(Args ...)>>(c->m_tecb)(args ...);
 			}
 		}
 
 		template <typename ...EmitterArgs, typename ...ReceiverArgs>
-		friend shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-		                                      slot<ReceiverArgs ...> &receiver,
-		                                      connection_type type);
+		friend std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+		                                           slot<ReceiverArgs ...> &receiver,
+		                                           connection_type type);
 
 		template <typename ...EmitterArgs, typename ...ReceiverArgs>
-		friend shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-		                               std::function<void(ReceiverArgs ...)> receiver);
+		friend std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+		                                           std::function<void(ReceiverArgs ...)> receiver);
 	};
 
 	template <typename ...Args>
@@ -216,7 +193,7 @@ namespace meta
 
 		~slot()
 		{
-			for(shared_ptr<connection> const &c : m_connections) {
+			for(std::shared_ptr<connection> const &c : m_connections) {
 				c->m_emitter->m_connections.erase(c);
 			}
 
@@ -244,19 +221,26 @@ namespace meta
 		}
 
 		template <typename ...EmitterArgs, typename ...ReceiverArgs>
-		friend shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-		                                      slot<ReceiverArgs ...> &receiver,
-		                                      connection_type type);
+		friend std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+		                                           slot<ReceiverArgs ...> &receiver,
+		                                           connection_type type);
 
 		template <typename ...EmitterArgs, typename ...ReceiverArgs>
-		friend shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-		                               std::function<void(ReceiverArgs ...)> receiver);
+		friend std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+		                                           std::function<void(ReceiverArgs ...)> receiver);
 	};
 
+	/*!
+	 * \brief Connects a signal with a slot
+	 * \param emitter The emitting signal
+	 * \param receiver The receiving sigal
+	 * \param type Whether the connection should be initialised as a direct or delayed connection
+	 * \return A shared pointer of the connection object.
+	 */
 	template <typename ...EmitterArgs, typename ...ReceiverArgs>
-	shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-	                               slot<ReceiverArgs ...> &receiver,
-	                               connection_type type)
+	std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+	                                    slot<ReceiverArgs ...> &receiver,
+	                                    connection_type type)
 	{
 		std::shared_ptr<connection> conn(new connection());
 		conn->m_me = conn;
@@ -285,9 +269,19 @@ namespace meta
 		return conn;
 	}
 
+	/*!
+	 * \brief Connects a signal with a std::function defining the receiver args (Ad-hoc connection).
+	 *
+	 * For callables in another format, use (with F f) std::function(f)
+	 * For lambdas, equivalently use std::function([...](...){...})
+	 *
+	 * \param emitter The emitting signal
+	 * \param receiver The receiving std::function
+	 * \return A shared pointer to the connection object
+	 */
 	template <typename ...EmitterArgs, typename ...ReceiverArgs>
-	shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-	                               std::function<void(ReceiverArgs ...)> receiver)
+	std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
+	                                    std::function<void(ReceiverArgs ...)> receiver)
 	{
 		std::shared_ptr<connection> conn(new connection());
 		emitter.m_connections.insert(conn);
