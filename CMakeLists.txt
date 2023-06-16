@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.23)
 
 find_package(doctest)
 
@@ -6,21 +6,18 @@ project(meta
 	LANGUAGES CXX
 )
 
-add_library(meta
-	include/meta/dummy.cpp
-	include/meta/connection
-	include/meta/connection.h
-	include/meta/object
-	include/meta/object.h
+add_library(meta INTERFACE
 	include/meta/util.h
+	include/meta/connection include/meta/connection.h
+	include/meta/object 	include/meta/object.h
 )
 
 target_compile_features(meta
-	PUBLIC cxx_std_20
+	INTERFACE cxx_std_20
 )
 
 target_include_directories(meta
-	PUBLIC include
+	INTERFACE include
 )
 
 if(doctest_FOUND)

@@ -14,10 +14,10 @@ namespace meta
 	    t.properties();
     };
 
-	template <typename Class>
+	template <typename>
 	class object;
 
-	template <std::copy_constructible T>
+	template <std::copy_constructible>
 	class property;
 
 }
@@ -29,7 +29,7 @@ namespace meta {
 	//reqires Objectable<Class>
 	class object
 	{
-		std::list<std::function<void(void)>> m_propertyUpdater;
+		std::list<std::function<void()>> m_propertyUpdater;
 		std::map<std::string, std::any> m_namedProperties;
 
 	public:

@@ -45,7 +45,6 @@ namespace meta
 {
 	struct connectable_base
 	{
-	protected:
 		std::set<std::shared_ptr<connection>> m_connections;
 
 		friend class connection;
@@ -69,6 +68,7 @@ namespace meta
 
 		std::weak_ptr<connection> m_me;
 
+        //! Type erased callback
 		std::any m_tecb;
 
 		connection()
@@ -134,7 +134,7 @@ namespace meta
 
 
 	template <typename ...Args>
-	class signal : public connectable_base
+	class signal : private connectable_base
 	{
 	public:
 		signal() = default;
@@ -145,9 +145,9 @@ namespace meta
 
 		~signal()
 		{
-			for(std::shared_ptr<connection> const &c : m_connections) {
-				if(c->m_receiver)
-					c->m_receiver.value()->m_connections.erase(c);
+			for(std::shared_ptr<connection> const &connection : m_connections) {
+				if(connection->m_receiver)
+					connection->m_receiver.value()->m_connections.erase(connection);
 			}
 
 			m_connections.clear();
@@ -175,7 +175,7 @@ namespace meta
 	};
 
 	template <typename ...Args>
-	class slot : public connectable_base
+	class slot : private connectable_base
 	{
 		std::function<void(Args ...)> m_callable;
 		std::queue<std::tuple<Args ...>> m_queue;
@@ -224,10 +224,6 @@ namespace meta
 		friend std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
 		                                           slot<ReceiverArgs ...> &receiver,
 		                                           connection_type type);
-
-		template <typename ...EmitterArgs, typename ...ReceiverArgs>
-		friend std::shared_ptr<connection> connect(signal<EmitterArgs ...> &emitter,
-		                                           std::function<void(ReceiverArgs ...)> receiver);
 	};
 
 	/*!
@@ -245,8 +241,8 @@ namespace meta
 		std::shared_ptr<connection> conn(new connection());
 		conn->m_me = conn;
 
-		conn->m_emitter = &emitter;
-		conn->m_receiver = &receiver;
+		conn->m_emitter = static_cast<connectable_base *>(&emitter);
+		conn->m_receiver = static_cast<connectable_base *>(&receiver);
 		conn->type = type;
 
 		emitter.m_connections.insert(conn);
@@ -292,7 +288,6 @@ namespace meta
 		conn->m_receiver = std::nullopt;
 
 		conn->type = connection_type::DIRECT;
-
 
 		auto remapper = [receiver = std::move(receiver)](EmitterArgs ...args){
 			util::apply_drop<ReceiverArgs ...>(receiver, args ...);
