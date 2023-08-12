@@ -101,18 +101,21 @@ namespace meta
 		 */
 		bool disconnect()
 		{
-			if(m_connected) {
-				//Acquire a shared pointer to the connection itself
-				auto c = m_me.lock();
+            if(!m_connected) {
+                return false;
+            }
 
-				//Remove the connection from the emitter and, if applicable, the sender
-				m_emitter->m_connections.erase(c);
-				if(m_receiver)
-					m_receiver.value()->m_connections.erase(c);
+            //Acquire a shared pointer to me for map comparison
+            auto c = m_me.lock();
 
-				m_connected = false;
-				return true;
-			} else return false;
+            //Remove the connection from the emitter and, if applicable, the sender
+            m_emitter->m_connections.erase(c);
+            if(m_receiver)
+                m_receiver.value()->m_connections.erase(c);
+
+            m_connected = false;
+            return true;
+
 		}
 
 
